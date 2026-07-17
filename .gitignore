@@ -4,6 +4,7 @@ node_modules/
 # Build
 dist/
 dist-ssr/
+*.tsbuildinfo
 
 # Environnement — ne JAMAIS committer les clés API
 .env
