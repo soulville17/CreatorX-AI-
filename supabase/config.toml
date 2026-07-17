@@ -1,0 +1,6 @@
+# Configuration Supabase CLI — CreatorX AI
+project_id = "creatorx-ai"
+
+# Le webhook CinetPay est appelé par les serveurs CinetPay, sans jeton utilisateur.
+[functions.cinetpay-webhook]
+verify_jwt = false
