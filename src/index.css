@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/*
+  Thème CreatorX AI — sobre et premium.
+  Fond clair, accents chaleureux or / terracotta, gros boutons tactiles.
+*/
+@theme {
+  --color-fond: #faf7f2;          /* fond crème clair */
+  --color-encre: #2b2118;         /* texte principal, brun très foncé */
+  --color-encre-douce: #7a6a5a;   /* texte secondaire */
+  --color-or: #c9962e;            /* accent or */
+  --color-or-fonce: #a87b1f;
+  --color-terracotta: #c96a3b;    /* accent terracotta */
+  --color-terracotta-fonce: #a9532a;
+  --color-carte: #ffffff;
+  --color-succes: #2e7d4f;
+  --color-erreur: #c0392b;
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  background-color: var(--color-fond);
+  color: var(--color-encre);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+}
+
+/* Boutons et zones tactiles confortables sur mobile (min 48px) */
+button, a.btn, input, select, textarea {
+  min-height: 48px;
+}
+input, select, textarea {
+  font-size: 16px; /* évite le zoom automatique sur iOS */
+}

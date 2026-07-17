@@ -1,0 +1,25 @@
+# Dépendances
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+
+# Environnement — ne JAMAIS committer les clés API
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Éditeurs
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
