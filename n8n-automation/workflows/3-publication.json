@@ -1,0 +1,78 @@
+{
+  "name": "3 - Publication Facebook (Meta Graph API)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publication",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "c3000000-0000-0000-0000-000000000001",
+      "name": "Webhook publication",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "publication"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Assemble la légende finale du post Facebook.\nconst e = $json.body || {};\nconst c = e.contenu || {};\nconst p = e.produit || {};\nconst lignes = [\n  c.accroche,\n  '',\n  c.description,\n  '',\n  p.prix_fcfa ? `💰 Prix : ${p.prix_fcfa} FCFA` : null,\n  p.whatsapp ? `🟢 Commande sur WhatsApp : https://wa.me/${String(p.whatsapp).replace(/[^0-9]/g, '')}` : c.cta,\n  '',\n  (c.hashtags || []).join(' ')\n].filter(l => l !== null && l !== undefined);\nreturn [{ json: { produit_id: e.produit_id, image_url: p.image_url, legende: lignes.join('\\n') } }];"
+      },
+      "id": "c3000000-0000-0000-0000-000000000002",
+      "name": "Composer la légende",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $env.FB_PAGE_ID }}/photos",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $json.image_url, message: $json.legende, access_token: $env.FB_PAGE_ACCESS_TOKEN }) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "c3000000-0000-0000-0000-000000000003",
+      "name": "Publier sur la Page Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into publications (produit_id, reseau, post_id_externe, legende) values ($1, 'facebook', $2, $3); update produits set statut = 'publie' where id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Composer la légende').first().json.produit_id }}, {{ $json.post_id || $json.id }}, {{ $('Composer la légende').first().json.legende }}"
+        }
+      },
+      "id": "c3000000-0000-0000-0000-000000000004",
+      "name": "Historiser la publication",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [660, 0],
+      "credentials": {
+        "postgres": { "name": "Postgres marketing" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Réponse finale renvoyée jusqu'au premier webhook (Ingestion).\nconst fb = $('Publier sur la Page Facebook').first().json;\nconst compo = $('Composer la légende').first().json;\nreturn [{ json: {\n  succes: true,\n  message: '✅ Post publié sur la Page Facebook',\n  facebook_post_id: fb.post_id || fb.id,\n  produit_id: compo.produit_id,\n  legende: compo.legende\n} }];"
+      },
+      "id": "c3000000-0000-0000-0000-000000000005",
+      "name": "Réponse finale",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0]
+    }
+  ],
+  "connections": {
+    "Webhook publication": { "main": [[{ "node": "Composer la légende", "type": "main", "index": 0 }]] },
+    "Composer la légende": { "main": [[{ "node": "Publier sur la Page Facebook", "type": "main", "index": 0 }]] },
+    "Publier sur la Page Facebook": { "main": [[{ "node": "Historiser la publication", "type": "main", "index": 0 }]] },
+    "Historiser la publication": { "main": [[{ "node": "Réponse finale", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

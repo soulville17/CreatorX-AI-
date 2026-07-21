@@ -1,0 +1,102 @@
+{
+  "name": "2 - Génération de contenu créatif",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generation",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "b2000000-0000-0000-0000-000000000001",
+      "name": "Webhook génération",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "generation"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prépare la requête de copywriting pour Claude.\nconst e = $json.body || {};\nconst corps = {\n  model: $env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001',\n  max_tokens: 1024,\n  system: `Tu es un copywriter expert du marché ivoirien. Ton chaleureux et direct comme à Abidjan (nouchi léger seulement si demandé), émojis avec modération, prix en FCFA, appel à l'action WhatsApp. Réponds UNIQUEMENT en JSON : {\\\"accroche\\\":\\\"1 phrase percutante\\\",\\\"description\\\":\\\"3-4 phrases de vente\\\",\\\"hashtags\\\":[\\\"5 à 8 hashtags dont des locaux (#abidjan, #civ...)\\\"],\\\"cta\\\":\\\"appel à l'action WhatsApp\\\"}`,\n  messages: [{\n    role: 'user',\n    content: `Produit : ${e.produit?.nom} — ${e.produit?.prix_fcfa ?? '?'} FCFA\\nArgument : ${e.produit?.argument ?? ''}\\nWhatsApp : ${e.produit?.whatsapp ?? 'non fourni'}\\nLangues : ${e.produit?.langues ?? 'français'}\\nFiche d'analyse : ${JSON.stringify(e.fiche ?? {})}`\n  }]\n};\nreturn [{ json: { corps, entree: e } }];"
+      },
+      "id": "b2000000-0000-0000-0000-000000000002",
+      "name": "Préparer le copywriting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corps) }}",
+        "options": {}
+      },
+      "id": "b2000000-0000-0000-0000-000000000003",
+      "name": "Claude - copywriting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrait le contenu créatif JSON.\nconst texte = ($json.content || []).find(b => b.type === 'text')?.text ?? '{}';\nconst propre = texte.replace(/^```(json)?/m, '').replace(/```\\s*$/m, '').trim();\nconst contenu = JSON.parse(propre);\nconst entree = $('Préparer le copywriting').first().json.entree;\nreturn [{ json: { produit_id: entree.produit_id, produit: entree.produit, contenu } }];"
+      },
+      "id": "b2000000-0000-0000-0000-000000000004",
+      "name": "Extraire le contenu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update produits set contenu = $1, statut = 'genere' where id = $2 returning id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.contenu) }}, {{ $json.produit_id }}"
+        }
+      },
+      "id": "b2000000-0000-0000-0000-000000000005",
+      "name": "Enregistrer le contenu",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [880, 0],
+      "credentials": {
+        "postgres": { "name": "Postgres marketing" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WEBHOOK_URL }}webhook/publication",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Extraire le contenu').first().json) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "b2000000-0000-0000-0000-000000000006",
+      "name": "Lancer la publication",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 0]
+    }
+  ],
+  "connections": {
+    "Webhook génération": { "main": [[{ "node": "Préparer le copywriting", "type": "main", "index": 0 }]] },
+    "Préparer le copywriting": { "main": [[{ "node": "Claude - copywriting", "type": "main", "index": 0 }]] },
+    "Claude - copywriting": { "main": [[{ "node": "Extraire le contenu", "type": "main", "index": 0 }]] },
+    "Extraire le contenu": { "main": [[{ "node": "Enregistrer le contenu", "type": "main", "index": 0 }]] },
+    "Enregistrer le contenu": { "main": [[{ "node": "Lancer la publication", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

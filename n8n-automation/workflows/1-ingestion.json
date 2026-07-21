@@ -1,0 +1,102 @@
+{
+  "name": "1 - Ingestion & analyse produit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "produit",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000001",
+      "name": "Webhook produit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "produit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prépare la requête d'analyse pour Claude (vision + texte).\nconst p = $json.body || {};\nif (!p.nom || !p.image_url) {\n  throw new Error(\"Champs obligatoires : nom, image_url (+ prix_fcfa, argument conseillés)\");\n}\nconst contenu = [\n  { type: 'image', source: { type: 'url', url: p.image_url } },\n  {\n    type: 'text',\n    text: `Analyse ce produit vendu en Côte d'Ivoire.\\nNom : ${p.nom}\\nPrix : ${p.prix_fcfa ?? 'non précisé'} FCFA\\nArgument principal : ${p.argument ?? 'non précisé'}\\nLangues : ${p.langues ?? 'français'}`\n  }\n];\nconst corps = {\n  model: $env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001',\n  max_tokens: 1024,\n  system: `Tu es un analyste marketing pour le marché ivoirien et ouest-africain. À partir de la photo et des infos, réponds UNIQUEMENT en JSON : {\\\"categorie\\\":\\\"...\\\",\\\"description_visuelle\\\":\\\"ce qu'on voit sur la photo\\\",\\\"arguments_vente\\\":[\\\"3 à 5 arguments\\\"],\\\"audience_probable\\\":{\\\"genre\\\":\\\"tous|femmes|hommes\\\",\\\"age_min\\\":18,\\\"age_max\\\":55,\\\"centres_interet\\\":[\\\"...\\\"]},\\\"angle_publicitaire\\\":\\\"l'angle le plus vendeur\\\"}`,\n  messages: [{ role: 'user', content: contenu }]\n};\nreturn [{ json: { corps, produit: p } }];"
+      },
+      "id": "a1000000-0000-0000-0000-000000000002",
+      "name": "Préparer l'analyse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corps) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000003",
+      "name": "Claude - analyse produit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrait la fiche produit JSON de la réponse de Claude.\nconst texte = ($json.content || []).find(b => b.type === 'text')?.text ?? '{}';\nconst propre = texte.replace(/^```(json)?/m, '').replace(/```\\s*$/m, '').trim();\nconst fiche = JSON.parse(propre);\nconst produit = $('Préparer l\\'analyse').first().json.produit;\nreturn [{ json: { produit, fiche } }];"
+      },
+      "id": "a1000000-0000-0000-0000-000000000004",
+      "name": "Extraire la fiche",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into produits (nom, prix_fcfa, argument, image_url, whatsapp, langues, fiche, statut) values ($1, $2, $3, $4, $5, $6, $7, 'analyse') returning id;",
+        "options": {
+          "queryReplacement": "={{ $json.produit.nom }}, {{ $json.produit.prix_fcfa ?? null }}, {{ $json.produit.argument ?? '' }}, {{ $json.produit.image_url }}, {{ $json.produit.whatsapp ?? '' }}, {{ $json.produit.langues ?? 'français' }}, {{ JSON.stringify($json.fiche) }}"
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000005",
+      "name": "Enregistrer le produit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [880, 0],
+      "credentials": {
+        "postgres": { "name": "Postgres marketing" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WEBHOOK_URL }}webhook/generation",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ produit_id: $json.id, produit: $('Extraire la fiche').first().json.produit, fiche: $('Extraire la fiche').first().json.fiche }) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "a1000000-0000-0000-0000-000000000006",
+      "name": "Lancer la génération",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 0]
+    }
+  ],
+  "connections": {
+    "Webhook produit": { "main": [[{ "node": "Préparer l'analyse", "type": "main", "index": 0 }]] },
+    "Préparer l'analyse": { "main": [[{ "node": "Claude - analyse produit", "type": "main", "index": 0 }]] },
+    "Claude - analyse produit": { "main": [[{ "node": "Extraire la fiche", "type": "main", "index": 0 }]] },
+    "Extraire la fiche": { "main": [[{ "node": "Enregistrer le produit", "type": "main", "index": 0 }]] },
+    "Enregistrer le produit": { "main": [[{ "node": "Lancer la génération", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

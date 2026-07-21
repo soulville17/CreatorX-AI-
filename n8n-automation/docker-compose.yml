@@ -1,0 +1,55 @@
+# ============================================================
+# CreatorX — Automatisation marketing n8n (MVP phase 1)
+# n8n (orchestrateur) + Postgres (historique produits/posts)
+# Lancement : docker compose up -d
+# ============================================================
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-creatorx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changemoi}
+      POSTGRES_DB: ${POSTGRES_DB:-marketing}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # Création automatique des tables au premier démarrage
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-creatorx}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # Base interne de n8n (workflows, identifiants chiffrés)
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-marketing}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-creatorx}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-changemoi}
+      # URL publique de n8n (à adapter si déployé sur un serveur)
+      N8N_HOST: ${N8N_HOST:-localhost}
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: Africa/Abidjan
+      # Clés utilisées par les workflows via {{ $env.NOM }}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-4-5-20251001}
+      FB_PAGE_ID: ${FB_PAGE_ID}
+      FB_PAGE_ACCESS_TOKEN: ${FB_PAGE_ACCESS_TOKEN}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  n8n_data:
