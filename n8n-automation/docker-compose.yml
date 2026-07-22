@@ -3,7 +3,6 @@
 # n8n (orchestrateur) + Postgres (historique produits/posts)
 # Lancement : docker compose up -d
 # ============================================================
-version: "3.8"
 
 services:
   postgres:
