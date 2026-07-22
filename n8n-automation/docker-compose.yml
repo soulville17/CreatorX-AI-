@@ -38,6 +38,9 @@ services:
       N8N_HOST: ${N8N_HOST:-localhost}
       WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
       GENERIC_TIMEZONE: Africa/Abidjan
+      # Autorise les nœuds Code à lire les variables d'environnement ({{ $env.NOM }}).
+      # Depuis n8n 1.x, cet accès est bloqué par défaut pour raisons de sécurité.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       # Clés utilisées par les workflows via {{ $env.NOM }}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-4-5-20251001}
