@@ -50,7 +50,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extrait la fiche produit JSON de la réponse de Claude.\nconst texte = ($json.content || []).find(b => b.type === 'text')?.text ?? '{}';\nconst propre = texte.replace(/^```(json)?/m, '').replace(/```\\s*$/m, '').trim();\nconst fiche = JSON.parse(propre);\nconst produit = $('Préparer l\\'analyse').first().json.produit;\nreturn [{ json: { produit, fiche } }];"
+        "jsCode": "// Extrait la fiche produit JSON de la réponse de Claude.\n// On prend uniquement ce qui est entre la première { et la dernière } :\n// évite les erreurs si Claude ajoute du texte avant/après le JSON.\nconst texte = ($json.content || []).find(b => b.type === 'text')?.text ?? '{}';\nconst debut = texte.indexOf('{');\nconst fin = texte.lastIndexOf('}');\nconst propre = (debut !== -1 && fin !== -1) ? texte.slice(debut, fin + 1) : texte.trim();\nconst fiche = JSON.parse(propre);\nconst produit = $('Préparer l\\'analyse').first().json.produit;\nreturn [{ json: { produit, fiche } }];"
       },
       "id": "a1000000-0000-0000-0000-000000000004",
       "name": "Extraire la fiche",

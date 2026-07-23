@@ -50,7 +50,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extrait le contenu créatif JSON.\nconst texte = ($json.content || []).find(b => b.type === 'text')?.text ?? '{}';\nconst propre = texte.replace(/^```(json)?/m, '').replace(/```\\s*$/m, '').trim();\nconst contenu = JSON.parse(propre);\nconst entree = $('Préparer le copywriting').first().json.entree;\nreturn [{ json: { produit_id: entree.produit_id, produit: entree.produit, contenu } }];"
+        "jsCode": "// Extrait le contenu créatif JSON.\n// On prend uniquement ce qui est entre la première { et la dernière } :\n// évite les erreurs si Claude ajoute du texte avant/après le JSON.\nconst texte = ($json.content || []).find(b => b.type === 'text')?.text ?? '{}';\nconst debut = texte.indexOf('{');\nconst fin = texte.lastIndexOf('}');\nconst propre = (debut !== -1 && fin !== -1) ? texte.slice(debut, fin + 1) : texte.trim();\nconst contenu = JSON.parse(propre);\nconst entree = $('Préparer le copywriting').first().json.entree;\nreturn [{ json: { produit_id: entree.produit_id, produit: entree.produit, contenu } }];"
       },
       "id": "b2000000-0000-0000-0000-000000000004",
       "name": "Extraire le contenu",
