@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CreatorX — Déposer un produit</title>
+  <style>
+    :root {
+      --fond:#faf7f2; --encre:#2b2118; --douce:#7a6a5a;
+      --terra:#c96a3b; --terra2:#a9532a; --or:#c9962e; --succes:#2e7d4f; --erreur:#c0392b;
+      --carte:#fff;
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body {
+      margin:0; min-height:100dvh; background:var(--fond); color:var(--encre);
+      font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+      display:flex; justify-content:center; padding:20px;
+    }
+    .app { width:100%; max-width:440px; }
+    h1 { font-size:24px; margin:8px 0 2px; }
+    h1 .x { color:var(--terra); } h1 .ai { color:var(--or); }
+    .sous { color:var(--douce); margin:0 0 20px; font-size:15px; }
+    label { display:block; font-weight:600; margin:16px 0 6px; font-size:15px; }
+    input, textarea {
+      width:100%; border:1px solid #0002; border-radius:14px; padding:13px 14px;
+      font-size:16px; background:var(--carte); color:var(--encre); font-family:inherit;
+    }
+    textarea { min-height:70px; resize:vertical; }
+    .photo-zone {
+      border:2px dashed #c9962e88; background:#c9962e14; border-radius:16px;
+      padding:22px; text-align:center; cursor:pointer; color:var(--douce);
+    }
+    .photo-zone strong { color:var(--encre); display:block; margin-top:4px; }
+    .photo-zone .emoji { font-size:30px; }
+    #apercu { margin-top:12px; border-radius:14px; width:100%; max-height:280px;
+      object-fit:cover; display:none; }
+    #fichier { display:none; }
+    button {
+      width:100%; margin-top:24px; border:0; border-radius:16px; padding:16px;
+      font-size:17px; font-weight:700; color:#fff; background:var(--terra);
+      box-shadow:0 6px 18px #c96a3b40; cursor:pointer;
+    }
+    button:disabled { opacity:.55; }
+    .msg { margin-top:18px; padding:14px 16px; border-radius:14px; font-size:15px; display:none; }
+    .msg.ok { display:block; background:#2e7d4f18; color:var(--succes); border:1px solid #2e7d4f33; }
+    .msg.ko { display:block; background:#c0392b18; color:var(--erreur); border:1px solid #c0392b33; }
+    .msg.load { display:block; background:#c9962e18; color:#a87b1f; border:1px solid #c9962e33; }
+    .spin { display:inline-block; width:16px; height:16px; border:2px solid #a87b1f55;
+      border-top-color:#a87b1f; border-radius:50%; animation:t .8s linear infinite;
+      vertical-align:-3px; margin-right:8px; }
+    @keyframes t { to { transform:rotate(360deg); } }
+    .note { margin-top:22px; font-size:12px; color:var(--douce); line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Creator<span class="x">X</span><span class="ai"> AI</span></h1>
+    <p class="sous">Dépose ton produit — l'IA écrit la pub et la publie toute seule. 🚀</p>
+
+    <label>📸 Photo du produit</label>
+    <div class="photo-zone" id="zone">
+      <div class="emoji">📷</div>
+      <strong>Choisir une photo</strong>
+      <span>Prends-la en pleine lumière</span>
+    </div>
+    <input type="file" id="fichier" accept="image/*" />
+    <img id="apercu" alt="aperçu" />
+
+    <label>🛍️ Nom du produit</label>
+    <input id="nom" placeholder="Ex : Robe wax élégante" />
+
+    <label>💰 Prix (FCFA)</label>
+    <input id="prix" type="number" inputmode="numeric" placeholder="Ex : 15000" />
+
+    <label>✨ Argument principal (ce qui le rend spécial)</label>
+    <textarea id="argument" placeholder="Ex : Tissu wax premium, coupe moderne"></textarea>
+
+    <label>🟢 Ton numéro WhatsApp</label>
+    <input id="whatsapp" placeholder="Ex : +2250701020304" value="+225" />
+
+    <button id="envoyer">Publier ma pub ✨</button>
+    <div class="msg" id="msg"></div>
+
+    <p class="note">
+      ℹ️ Cette page envoie ton produit à ton système d'automatisation.
+      Ton ordinateur doit être allumé et n8n démarré. La publication apparaît
+      sur ta Page Facebook après ~30 secondes.
+    </p>
+  </div>
+
+<script>
+  // ====== Configuration (générée pour ton projet) ======
+  const SUPABASE_URL = "https://oyznmowemoeeqomnawdv.supabase.co";
+  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95em5tb3dlbW9lZXFvbW5hd2R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMDAyNzEsImV4cCI6MjA5OTg3NjI3MX0.2rJVS8LqGOFEGbnTnYRD5Tevs9_veiSVA4VpBN7BCxM";
+  const BUCKET = "produits-n8n";
+  const WEBHOOK = "http://localhost:5678/webhook/produit";
+  // ======================================================
+
+  const $ = (id) => document.getElementById(id);
+  const zone = $("zone"), fichier = $("fichier"), apercu = $("apercu"), msg = $("msg");
+  let fichierChoisi = null;
+
+  zone.addEventListener("click", () => fichier.click());
+  fichier.addEventListener("change", () => {
+    fichierChoisi = fichier.files[0] || null;
+    if (fichierChoisi) {
+      apercu.src = URL.createObjectURL(fichierChoisi);
+      apercu.style.display = "block";
+      zone.querySelector("strong").textContent = "✅ Photo choisie (cliquer pour changer)";
+    }
+  });
+
+  function afficher(type, html) { msg.className = "msg " + type; msg.innerHTML = html; }
+
+  $("envoyer").addEventListener("click", async () => {
+    const nom = $("nom").value.trim();
+    const prix = $("prix").value.trim();
+    const argument = $("argument").value.trim();
+    const whatsapp = $("whatsapp").value.replace(/\s/g, "");
+
+    if (!fichierChoisi) return afficher("ko", "📸 Choisis d'abord une photo.");
+    if (nom.length < 2)   return afficher("ko", "🛍️ Donne un nom à ton produit.");
+    if (!prix || +prix <= 0) return afficher("ko", "💰 Indique le prix en FCFA.");
+
+    const bouton = $("envoyer");
+    bouton.disabled = true;
+    afficher("load", '<span class="spin"></span> Envoi de la photo…');
+
+    try {
+      // 1) Envoi de la photo vers le stockage (lien public)
+      const ext = (fichierChoisi.name.split(".").pop() || "jpg").toLowerCase();
+      const chemin = Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${chemin}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_ANON,
+          Authorization: "Bearer " + SUPABASE_ANON,
+          "Content-Type": fichierChoisi.type || "image/jpeg",
+        },
+        body: fichierChoisi,
+      });
+      if (!up.ok) {
+        const t = await up.text();
+        throw new Error("Envoi de la photo refusé (" + up.status + "). " +
+          "As-tu bien préparé le stockage ? Détail : " + t.slice(0, 120));
+      }
+      const image_url = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${chemin}`;
+
+      // 2) Envoi du produit au système d'automatisation (n8n)
+      afficher("load", '<span class="spin"></span> Ton équipe IA prépare la pub…');
+      await fetch(WEBHOOK, {
+        method: "POST",
+        mode: "no-cors",
+        body: new URLSearchParams({
+          nom, prix_fcfa: prix, argument,
+          whatsapp, langues: "francais", image_url,
+        }),
+      });
+
+      afficher("ok", "🎉 Envoyé ! Ta pub sera sur ta Page Facebook dans ~30 secondes. " +
+        "Tu peux déposer un autre produit.");
+      // Réinitialise pour le produit suivant
+      fichier.value = ""; fichierChoisi = null;
+      apercu.style.display = "none";
+      zone.querySelector("strong").textContent = "Choisir une photo";
+      $("nom").value = ""; $("prix").value = ""; $("argument").value = "";
+    } catch (e) {
+      afficher("ko", "😕 " + (e.message || "Une erreur s'est produite.") +
+        "<br>Vérifie que n8n est bien démarré sur ton ordinateur.");
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
